@@ -1,0 +1,101 @@
+import net.divby0.vw.data.Gfx_Icon;
+import net.divby0.vw.map.Map_Object;
+import net.divby0.vw.data.Value;
+import net.divby0.nm.mookMath;
+import net.divby0.nm.mookDraw;
+import org.newdawn.slick.Color;
+import org.newdawn.slick.Image;
+
+int img = -1;
+
+// This function is used to draw the 'close-up' picture of the object
+draw_icon(g, obj, xx, yy, radius, alpha) {
+		if (obj.getBody() != null) {
+			float tilt = obj.getBody().getTilt();
+			float len = radius;
+			Color c = new Color(obj.getColor_bg().getRed(), obj.getColor_bg().getGreen(), obj.getColor_bg().getBlue(), (int) (255f * alpha));
+			g.setColor(c);
+			g.drawOval(xx - 5, yy - 5, 10, 10);
+			mookDraw.drawDottedLineFade(g, 
+						xx, yy, new Color(0, 0, 0, 0),
+						xx + mookMath.lengthdir_x(len, (float) (Math.PI/2 + tilt)), yy + mookMath.lengthdir_y(len, (float) (Math.PI/2 + tilt)), c,
+						10, 5);
+			mookDraw.drawDottedLineFade(g, 
+						xx, yy, new Color(0, 0, 0, 0),
+						xx - mookMath.lengthdir_x(len, (float) (Math.PI/2 + tilt)), yy - mookMath.lengthdir_y(len, (float) (Math.PI/2 + tilt)), c,
+						10, 5);
+						
+		if (img >= 0) {
+			Image atmosphere = g.get(img);
+			float scale = .7f;
+			atmosphere.getScaledCopy(2f * scale * radius/(float) atmosphere.getWidth()).draw(xx - scale * radius, yy - scale * radius, obj.getColor_outer());
+		}
+						
+						
+		}
+
+		
+		
+}
+
+// This function is used to draw the object on the map
+draw_map(g, obj, xx, yy, dx, zoom, au_per_unit) {
+
+	float radius = Math.max(1+2*Math.min(obj.getRadius()/10000000, 2), zoom * dx * obj.getRadius()/ 149597871000f / au_per_unit);
+	
+	if (img == -1) {
+		img = g.get("data/img/gradient_sphere.png");
+	}
+	
+	if (img >= 0) {
+		Image atmosphere = g.get(img);
+		float scale = 1.75f;
+		atmosphere.getScaledCopy(2f * scale * radius/(float) atmosphere.getWidth()).draw(xx - scale * radius, yy - scale * radius, obj.getColor_outer());
+	}
+	
+	g.setColor(obj.getColor_inner());
+	float radius_o = radius + 2f;
+	g.setColor(new Color(obj.getColor_outer().getRed(),obj.getColor_outer().getGreen(),obj.getColor_outer().getBlue(),175));
+	g.fillOval(xx - radius_o, yy - radius_o, radius_o * 2, radius_o * 2);
+	
+	g.setColor(new Color(0,0,0,195));
+	g.fillOval(xx - radius - 1, yy - radius - 1, radius * 2 + 2, radius * 2 + 2);
+	
+	g.setColor(new Color(obj.getColor_inner().getRed()/2,obj.getColor_inner().getGreen()/2,obj.getColor_inner().getBlue()/2,255));
+	g.fillOval(xx - radius, yy - radius, radius * 2, radius * 2);
+}
+
+// Returns the 'size' of the object independently of the actual drawing
+get_size(obj, dx, zoom, au_per_unit) {
+	return 4f + Math.max(8, 1.1f * zoom * dx * obj.getRadius()/ 149597871000f / au_per_unit);
+}
+
+// Returns an array of Value objects. A value is 3 fields, constructor is new Value(String name, String unit, double value)
+// If you want a blank word with no value, set the units to null
+get_tooltip(obj) {
+	Value[] ret = new Value[10];
+	int n = 0;
+	ret[n++] = new Value("Mass: ", obj.getMass()/1000f, " tons");
+	ret[n++] = new Value("Temperature: ", obj.getTemperature(), " K");
+	ret[n++] = new Value("Radius: ", obj.getRadius()/1000f, " km");
+	ret[n++] = new Value("", -1, null); //\n
+	if (obj.getOrbit() != null) {
+		if (obj.getOrbit().getInclination() != obj.getTilt()) {
+			ret[n++] = new Value("Inclination: ", obj.getOrbit().getInclination(), " rad");
+		}
+		if (obj.getBody() != null) {
+			ret[n++] = new Value("Axial Tilt: ", obj.getTilt(), " rad");
+		}
+		ret[n++] = new Value("Semi-Major Axis: ", obj.getOrbit().getRadius(), " m");
+		ret[n++] = new Value("Orbital Period: ", obj.getOrbit().getPeriod()/31536000f, " yr");
+
+	} else if (obj.getBody() != null) {
+		ret[n++] = new Value("Orbital Period: ", obj.getBody().getSeason()/31536000f, " yr");
+	}
+	if (obj.getBody() != null) {
+		ret[n++] = new Value("Rotation Period: ", obj.getBody().getDay()/31536000f, " yr");
+	}
+	return ret;
+}
+
+return (Gfx_Icon) this;

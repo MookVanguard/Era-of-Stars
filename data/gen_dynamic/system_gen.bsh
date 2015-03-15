@@ -1,0 +1,28 @@
+import net.divby0.vw.data.Type_Dynamic;
+import net.divby0.vw.data.BlackBody;
+import net.divby0.vw.map.Map_Star;
+import net.divby0.vw.map.Map_Body;
+import net.divby0.vw.map.Map_Parent;
+import net.divby0.vw.map.Map_Object;
+import net.divby0.vw.map.Orbit;
+import java.util.Random;
+import org.newdawn.slick.Color;
+
+// This is the world generator. 
+
+getChance(double t, double delta, Map_Object obj, Map_Object parent, Map_Star host) {
+	return 0.125d;
+}
+run(double t, double delta, Map_Object obj, Map_Object parent, Map_Star host) {
+	if (obj.getSun() != null) {
+		obj.setLuminosity((obj.getLuminosity() + 3f*obj.getSun().getLuminosity()*3.846e26f)/4);
+	}
+	return true;
+}
+
+
+reset() {
+	// Use this to reset any global variables you may set
+}
+
+return (Type_Dynamic) this;

@@ -1,0 +1,413 @@
+import net.divby0.vw.data.Type_Sysgen;
+import net.divby0.vw.data.BlackBody;
+import net.divby0.vw.map.Map_Star;
+import net.divby0.vw.map.Map_Body;
+import net.divby0.vw.map.Map_Object;
+import net.divby0.vw.map.Map_Barycenter;
+import net.divby0.vw.map.Map_Parent;
+import java.util.Random;
+import org.newdawn.slick.Color;
+import net.divby0.vw.world.World_Universe;
+import net.divby0.vw.world.Board_Parent;
+import net.divby0.vw.world.Board_System;
+
+import net.divby0.vw.world.Pair;
+import net.divby0.vw.world.PairPair;
+import net.divby0.vw.world.ObjectPair;
+import net.divby0.vw.data.Data_Type_Dynamic;
+import net.divby0.vw.data.PairList;
+import net.divby0.vw.data.ObjectPairList;
+
+import net.divby0.vw.data.DynamicStack;
+
+import net.divby0.vw.data.ObjectList;
+import net.divby0.vw.data.DoubleList;
+
+import net.divby0.vw.map.Orbit;
+import net.divby0.vw.map.SystemNamer;
+
+
+
+// This is the system generator
+// Its a bit complicated and ugly
+// For the most part you dont need to modify this at all to add new planets, stars, etc
+makeSystem(star, univ) {
+	System.out.println("Starting System Gen");
+	
+	Random rand = new Random(star.getSeed());
+		
+	//We only build a system if the star is untouched.
+	if (star.getNamer() == null) {	
+		System.out.println("---Stellar matchmaking");
+		
+		star.setUpdateStatus(false); // We dont want stellar evolution to interfere here
+		
+		// First, we start off early in the stars life
+		star.updateAge(star.getBirth() + 1);
+		
+		//Next, we name the stars.
+		star.createSystemNamer();
+		
+		//Now we make a temporary system for all the objects of the system to identify with. We will make the system bigger later
+		Board_System system = star.getSystem();
+		
+		Map_Object sun = star.getSun();//new Map_Body(system, star);
+		sun.setSystem(system);
+		
+		if (star.getBinary_partners().size() > 0) {
+			sun.setTitle(star.getTitle() + " Alpha");
+		}
+		
+		star.setBoard_system(system);
+		//star.setSun(sun);
+		star.getSystem().getObjects().add(star.getSun());
+		
+
+		//Since we have a preset number of stars, we first add all of these stars to a list.
+		ObjectList suns = new ObjectList();
+		suns.add(star.getSun());
+					
+		for (int b = 0; b < star.getBinary_partners().size(); b++) {
+			Map_Star star2 = star.getBinary_partners().get(b);
+			
+			//star2.setSun(new Map_Body(star.getSystem(), star2));
+			star2.getSun().setSystem(system);
+			star.getSystem().getObjects().add(star2.getSun());
+			
+			suns.add(star2.getSun());
+		}
+		
+
+		
+		//Now we arrange the stars in pairs
+		ObjectPairList objectpairs = new ObjectPairList();
+		
+		for (int b = 0; b < suns.size(); b++) {
+			if ((rand.nextFloat() > .5f && b < suns.size() - 1) || (suns.size() == 2 && b == 0)) {
+				//Make a pair
+				objectpairs.add(new ObjectPair(suns.get(b), suns.get(b+1)));
+				b++;
+			} else {
+				//Make a loner
+				objectpairs.add(new ObjectPair(suns.get(b), null));
+			}
+		}
+		
+		//Recursively go through pairs
+		PairList pairs = new PairList();
+		for (int b = 0; b < objectpairs.size(); b++) {
+			pairs.add(objectpairs.get(b));
+		}
+		
+		PairList pairbuffer = new PairList();
+		do {
+			pairbuffer = pairs;
+			pairs = new PairList();
+			for (int b = 0; b < pairbuffer.size(); b++) {
+				if (b < pairbuffer.size() - 1) {
+					//Make a pair
+					pairs.add(new PairPair(pairbuffer.get(b), pairbuffer.get(b+1)));
+					b++;
+				} else {
+					//Make a loner
+					pairs.add(new PairPair(pairbuffer.get(b), null));
+				}
+			}
+		} while (pairs.size() > 1);
+		
+		System.out.println("---Iterating pairs");
+		
+		//Now we use a recursive function on the only pair left
+		Map_Object system_center = iteratePair(rand, pairs.get(0), system);
+					
+		system_center.setTitle((star.getTitle()));
+						
+		System.out.println("---Accreting bodies");
+		
+		float d = 2*makeBodies(rand, univ, star.getTitle(), system_center);
+		
+		for (int i = 0; i < system.objects.size(); i++) {
+			Map_Object o = system.objects.get(i);
+			if (o != system_center && o.getOrbit() != null) {
+				makeBodies(rand, univ, o.getTitle(), o);
+			}
+		}
+																		
+		//we will expand the system to fit the furthest object
+		system.setSize(d);
+		system_center.setPos(0, 0);
+		
+		System.out.println("---Simulating cosmic history");
+		
+		double year = 24*3600*365;
+		double max = year * star.getLifetime() * 1000000d;
+		
+		double dd = Math.max(1, star.getLifetime()/100);
+		
+		star.updateAge(univ.getT()/3.15569e13d);
+		
+		double phase1 = star.getBirth() + Math.min(star.getAge(), star.getLifetime()*.9f);
+		double phase2 = univ.getT()/3.15569e13d;
+				
+		for (double t = star.getBirth(); t < phase1; t += dd) {
+
+			// Most of the work will be toward the end of the stars life.
+			// This is so it can model 
+			
+			
+
+			star.updateAge(t);
+			star.update_ev(star.getAge()/star.getLifetime());
+			
+			system.update(dd * 3.15569e13d,  t* 3.15569e13d);
+			
+			DynamicStack stack = new DynamicStack(univ.getDynamics());
+			
+			for (Data_Type_Dynamic dynamic : stack) {
+				for (Map_Object obj : system.objects){
+					Orbit o = obj.getOrbit();
+										
+					if (o != null && rand.nextFloat() < dynamic.getType().getChance(t, dd, obj, o.getBarycenter(), star)) {
+						dynamic.getType().run(t, dd, obj, o.getBarycenter(), star);
+						if (obj.getBody() != null) {
+							for (Map_Object moon : obj.getBody().getSatellites()) {
+								Orbit oo = obj.getOrbit();
+								if (oo != null && rand.nextFloat() < dynamic.getType().getChance(t, dd, moon, oo.getBarycenter(), star)) {
+									dynamic.getType().run(t, dd, moon, oo.getBarycenter(), star);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		System.out.println("---Computing final stages");
+		double deltaEnd = Math.max(1, (phase2 - phase1)/1000d);
+		for (double t = phase1; t < phase2; t += deltaEnd) {
+			// Most of the work will be toward the end of the stars life.
+			// This is so it can model 
+			
+			star.updateAge(t);
+			star.update_ev(star.getAge()/star.getLifetime());
+			
+			system.update(deltaEnd * 3.15569e13d,  t* 3.15569e13d);
+			
+			
+			DynamicStack stack = new DynamicStack(univ.getDynamics());
+			
+			for (Data_Type_Dynamic dynamic : stack) {
+				for (Map_Object obj : system.objects){
+					Orbit o = obj.getOrbit();
+					if (o != null) {
+											
+						if (rand.nextFloat() < dynamic.getType().getChance(t, dd, obj, o.getBarycenter(), star)) {
+							dynamic.getType().run(t, dd, obj, o.getBarycenter(), star);
+							if (obj.getBody() != null) {
+								for (Map_Object moon : obj.getBody().getSatellites()) {
+									Orbit oo = obj.getOrbit();
+									if (oo != null && rand.nextFloat() < dynamic.getType().getChance(t, dd, moon, oo.getBarycenter(), star)) {
+										dynamic.getType().run(t, dd, moon, oo.getBarycenter(), star);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		
+		for (Map_Object obj : system.objects){
+				Orbit o = obj.getOrbit();
+				
+				if (o != null && 2*o.getRadiusMap() > d) {
+						d = 2*o.getRadiusMap();
+						system.setSize(d);
+				}
+		}
+		
+		star.updateAge(univ.getT()/3.15569e13d);
+		star.update_ev(star.getAge()/star.getLifetime());
+		
+		star.setUpdateStatus(true); // Concurrency is no longer an issue
+		star.makeSaved(); // Signal that the sector has been built
+		System.out.println("Done");
+	}
+	return true;
+}
+
+// Recursive function for organizing the stars into binary pairs
+Map_Object iteratePair(Random rand, Pair pair, Board_System system) {
+	if (pair.getObjectPair() != null) {
+		if (pair.isLoner()) {
+			return pair.getObjectPair().get1();
+		} else {
+			Map_Object o1 = pair.getObjectPair().get1(), o2 = pair.getObjectPair().get2();
+			float d = .01f + (float)(4 + 8* Math.pow(rand.nextFloat(), 2)) * Math.max(5, (o1.getRadius() + o2.getRadius() + o1.getBinarySeparation() + o2.getBinarySeparation())/149597871000f);
+			Map_Barycenter barycenter = new Map_Barycenter(system, o1, o2, d);
+			barycenter.setOrbits(1, rand);
+			system.objects.add(barycenter);
+			//makeBodies(rand, planet_types, moon_types, field_types, gas_types, barycenter);
+			return barycenter;
+		}
+	} else {
+		if (pair.isLoner()) {
+			return iteratePair(rand, pair.getPair().get1(), system);
+		} else {
+			Map_Object o1 = iteratePair(rand, pair.getPair().get1(), system),
+					o2 = iteratePair(rand, pair.getPair().get2(), system);
+			float d = .01f + (float)(4 + 8* Math.pow(rand.nextFloat(), 2)) * Math.max(5, (o1.getRadius() + o2.getRadius() + o1.getBinarySeparation() + o2.getBinarySeparation())/149597871000f);
+			Map_Barycenter barycenter = new Map_Barycenter(system, 
+					o1,
+					o2, d);
+			barycenter.setOrbits(1, rand);
+			system.objects.add(barycenter);
+			//
+			return barycenter;
+		}
+	}
+}
+	
+float makeBodies(Random rand, World_Universe univ, String title, Map_Object center) {		
+	Map_Star main_star = center.getSystem().getHost_star();
+	Map_Object center_body = center.getGenBody(); // Gets the center body. Barycenters pick the heavier one.
+	
+	SystemNamer namer = new SystemNamer(title);
+	
+	float minDist = Math.max(
+			.01f + .01f*rand.nextFloat(),   
+			(1f + (float) Math.pow(rand.nextFloat()*.5f, 2)) * center.getMinRadius());
+	float maxDist = (float) Math.pow(100000000000000000000d
+			/(Math.PI*Math.PI*4)*6.67e-11*center.getMass(), 1d/3d)/150000000000f; // 300 years
+			//Math.max(
+			//(float) Math.pow(center.getMass()/1.9891e30f, .25f) * 75,
+			//(10f+rand.nextFloat()*10f) * center.getMinRadius()
+			//);
+	if (center.getHill() > 1000) {
+		maxDist = center.getHill()/149597871000f;
+	}
+	
+	if (!(center_body != null && center_body.hasVariable("Planet Density"))) {//|| main_star.hasVariable("Planet Density")
+		return minDist;			
+	}
+	
+	float planet_density = center_body.getVariable("Planet Density");
+	int max_count = 50; // Max number of planets
+	
+	DoubleList slots = new DoubleList(); // We create a table of 'slots' which contains objects
+	// Now we create split up the slots based on Titus-Bode law and other things. Planetcount is determined above.
+	for (int n = 0; n < max_count; n++) {
+		slots.add((1d-planet_density)*(minDist/.1f)*(.4f + (n == 0 ? 0d : .3d * Math.pow(2, n))));
+	}
+	
+	System.out.println("min " + minDist + " max " + maxDist);
+			
+	for (double d : slots) {
+		if (d < maxDist) {
+			Map_Body obj = addBody(rand, univ, namer, d, center, main_star);
+			if (obj == null) {
+				continue;
+			}
+			// Moons -- with hill sphere calc
+			if (obj.hasVariable("Moon Density")) {
+				float hill = (float) (obj.getOrbitalRadius() * (1f - obj.getOrbit().getEccentricity()) *
+					Math.pow(obj.getMass()/(3 * center.getMass()), 1f/3f))/10000000f; //10,000 kilometers
+				addMoons(rand, univ, obj, main_star, (float) (obj.getRadius()/10000000f*(2 + 50* rand.nextFloat())),  hill/(float)(3f+d));		
+			}
+			
+			obj.makeSystem();
+			center.getSystem().getObjects().add(obj);
+			center.addOrbiter(obj); // This adds the object as a body orbiting the center, but not within a separate system.
+
+		}
+	}
+
+	return maxDist;
+}
+	
+Map_Body addBody(Random rand, World_Universe univ, SystemNamer namer, double distance, Map_Object center, Map_Star main_star) {
+	float ecc = 0;
+	if (distance < 0.5f) {
+		ecc = (float) (.25f*Math.pow(rand.nextFloat(), 5 - 3 * (distance)));
+	} else {
+		ecc = (float) Math.max(0, .1f*Math.pow(rand.nextFloat(), 3) - .03); // The Math.max here is to make sure some orbits are perfectly circular, which is easier on the processor
+	}
+	
+	float phi = (float) (rand.nextFloat() * Math.PI*2);
+	float tau = (float) (rand.nextFloat() * Math.PI*2);
+	float per = (float) (rand.nextFloat() * Math.PI*2);
+	
+	Map_Body obj = new Map_Body(center.getSystem(), 1f, "Objectid: " + rand.nextLong() + distance, "Planet", univ.getT()-main_star.getAge()*1000000, rand.nextLong());
+
+	obj.setTitleObject(center, namer.getSuffPlanet());
+	obj.setOrbit(0, 0, (float) distance, phi, tau, per, center.getMass(), ecc, 1.9891e30f, 1f, 31536000f);
+	obj.getOrbit().setBarycenter(center);
+	
+	
+	if (univ.setRandomBodyType(obj, center, main_star, 149597871000f * distance).equals("null")) {
+		System.err.println("Planetgen failed");
+		return null;
+	} else {
+		obj.update(1, 1);
+
+		return obj;
+	}
+}
+	
+addMoons(Random rand, World_Universe univ, Map_Object center, Map_Star main_star, float minDist, float maxDist) {
+	Map_Body center_body = (Map_Body) center.getGenBody(); // Gets the center body. Barycenters pick the heavier one.
+	
+	//System.out.println("Genning moons");
+			
+	SystemNamer namer = new SystemNamer(center_body.getTitle());
+	
+	float moon_density = center_body.getVariable("Moon Density");
+	int max_count = 25; // Max number of moons
+	
+
+	float tau = (float) (rand.nextFloat() * Math.PI*2);
+	
+	DoubleList slots = new DoubleList(); // We create a table of 'slots' which contains objects
+	// Dermott's law this time. We take orbital periods and convert them to days based on the center's orbital parameters.
+	// Note center here. If center is a barycenter, we use the combined mass for finding G.
+	double k = 1.5d + rand.nextFloat(); // a konstant
+	double t = (0.4d + 0.1d * rand.nextFloat())*86400d; // seconds
+	for (int n = 1; n <= max_count; n++) {
+		double period = t * Math.pow(k, n); // seconds
+		double d = Math.pow(Math.pow(period/(2d*Math.PI), 2)*6.67e-11*center.getMass(), 1d/3d); // meters
+		slots.add(d/10000000d);
+	}		
+	
+	for (double distance : slots) {
+		if (distance > minDist && distance < maxDist && rand.nextFloat() < moon_density) {
+			float d = (float) distance;
+			Map_Body obj = new Map_Body(center_body.getSystem(), 1f, center_body.getId() + d, "Moon", univ.getT()-main_star.getAge()*1000000, rand.nextLong());
+			obj.setTitleObject(center_body, namer.getSuffMoon());
+			
+			float ecc = (float) (.1f*Math.pow(rand.nextFloat(), 3));
+			float phi = (float) (rand.nextFloat() * Math.PI*2);
+			float per = (float) (rand.nextFloat() * Math.PI*2);
+			
+			obj.setOrbit(0, 0, d, phi, tau, per, center_body.getMass(), ecc, 1.9891e30f, 10000f/149597871f, 31536000f);
+			obj.setInclination(Math.min(center_body.getTilt(), Math.PI/3d));
+			obj.setTilt(center_body.getTilt());
+			obj.setD(d);
+						
+			if (univ.setRandomBodyType(obj, center_body, main_star, 10000000f * d).equals("null")) {
+				namer.reverse();
+				continue;
+			} else {
+				double roche = 1.26*obj.getRadius()*Math.pow(center_body.getMass()/obj.getMass(), 1d/3d);
+				
+				if (d * 10000000 > roche) {
+					center_body.addSatellite(obj);
+				} else {
+					namer.reverse();
+				}
+			}
+		}
+	}
+}
+
+return (Type_Sysgen) this;

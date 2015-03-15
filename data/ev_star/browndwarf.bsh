@@ -1,0 +1,112 @@
+import net.divby0.vw.data.Type_Star_Ev;
+import net.divby0.vw.data.BlackBody;
+import net.divby0.vw.map.Map_Star;
+import net.divby0.vw.map.Map_Body;
+import net.divby0.vw.map.Map_Parent;
+import java.util.Random;
+import org.newdawn.slick.Color;
+import net.divby0.vw.world.World_Universe;
+
+// This is the 'evolution equation,' which governs the stars properties with respect to its age.
+// If a stars age is bigger than its lifetime it will generally be some kind of stellar remnant
+update(t, obj, parent) {
+
+	int stage = 0; 
+	
+	double l = obj.getVariable("Starting L"); 
+	double m = obj.getVariable("Starting M");
+	double T = obj.getVariable("Starting T");
+	
+	double p = t;
+	u = p*obj.getLifetime()/1000d; // billions of years
+	
+	//////////////////////////////////////////////
+	double contraction = .6*Math.pow(.5, .072/m);
+	double detburn = 15*Math.pow(.3333333, .072/m);
+
+	if (u < contraction) {
+		stage = -2;
+	} else if (u < contraction + detburn) {
+		stage = -1;
+		u -= contraction;
+	} else {
+		u -= contraction + detburn;
+	}
+	
+	
+	double tt, rr;
+	
+	// Advance along the H-R diagram according to the lifecycle stage.
+	switch (stage) {
+	
+	// p = percentage of lifetime passed
+	// u = percentage of current stage
+
+
+	
+	case -2: {
+		tt = (2400 + 600 * (m/.072))/5778;
+		rr = (2 - u/contraction) * .09 / (1 - (.25 + .15*(2400 - tt)) * (m)/0.072);
+		break;}
+		
+	case -1: {
+		tt = (2400 + 600 * (m/.072))/5778;
+		rr = .09 / (1 - (.25 + .15*(2400 - tt)) * (m)/0.072);
+		break;}
+		
+	default: {
+		double scl = Math.pow(1 + 3*u*Math.max(.1, .072/(m*2.6666667)), -1d/3d);
+		tt = scl*(2400 + 600 * (m/.072))/5778;
+		rr = .09 / (1 - (.25 + .15*(2400 - tt)) * (m)/0.072);
+		break;}
+	}
+	
+	obj.setRadius(rr);
+	obj.setTemperature(tt*5778);
+	
+
+	obj.setLuminosity(rr*rr*tt*tt*tt*tt);
+		
+	//////////////////////////////////////////////
+					
+	obj.setRadius(Math.sqrt(obj.getLuminosity() / Math.pow(obj.getTemperature() / 5778d, 4)));
+	
+	obj.getSun().setRadius(obj.getRadius()*695500000f);
+	obj.getSun().setLuminosity(3.846e26f*obj.getLuminosity());							//Watts
+	obj.getSun().setTemperature(obj.getTemperature());									//Kelvin
+		
+	obj.getSun().changeMass(obj.getMass()*1.9891e30f - obj.getSun().getMass());
+	
+	// color info and graphics
+if (stage != 0) {
+		obj.setColor_inner(BlackBody.getColor(obj.getTemperature()/.7));
+	} else {
+		obj.setColor_inner(BlackBody.getColor(obj.getTemperature()));
+	}
+	obj.setColor_outer(obj.getColor_inner());
+	obj.getSun().setColor_inner(BlackBody.getColor(obj.getTemperature()));
+	obj.getSun().setColor_outer(obj.getColor_outer());
+	//obj.getSun().setColor_bg(obj.getColor_bg());
+
+
+	obj.setSpectralClass();
+	
+	obj.setDesignation("Brown Dwarf");
+	obj.getSun().setDesignation(obj.getDesignation());
+		
+	String prefix = "";
+	switch (obj.getBinaryCount()) {
+		case 2: prefix = "Binary "; break;
+		case 3: prefix = "Trinary "; break;
+		case 4: prefix = "Quaternary "; break;
+		case 5: prefix = "Quintenary  "; break;
+		case 6: prefix = "Sextenary "; break;
+		case 7: prefix = "Septenary "; break;
+	}
+	
+	obj.setDesignation(prefix + obj.getDesignation());
+		
+	return true;
+}
+
+return (Type_Star_Ev) this;

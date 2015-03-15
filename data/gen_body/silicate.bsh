@@ -1,0 +1,76 @@
+import net.divby0.vw.data.Type_Body;
+import net.divby0.vw.data.BlackBody;
+import net.divby0.vw.map.Map_Star;
+import net.divby0.vw.map.Map_Parent;
+import net.divby0.vw.map.Orbit;
+import java.util.Random;
+import org.newdawn.slick.Color;
+
+getFrequency(obj, parent, host, distance) {
+	return 100d;
+}
+
+generateBody(obj, parent, host) {
+	Random rand = new Random(obj.getSeed()); // RNG for our calcs
+	
+	// Give the body its properties here
+	double base = parent.getSun() != null ? .05 : 0.0005;
+	obj.setMass(6e24f *(float) (base * (1d + 15d*Math.pow(rand.nextFloat(), 1.5) + 200d*Math.pow(rand.nextFloat(), 2))));
+	
+	
+	if (obj.getMass() > parent.getMass() * 0.01d) {
+		return false; // Reroll for a different planet type, and exit this one
+	}
+
+	obj.setDensity(5000f + 1000f*rand.nextFloat());
+	obj.setRadius((float) Math.pow(obj.getMass()/obj.getDensity()*3d/(4d*Math.PI), 1f/3f));		
+	
+	
+	// Rotational stuff
+	
+	double area_ratio = 0.25;
+	
+	double distance = obj.getOrbitalRadius();
+		
+	// This will be the "starting" rotation speed. Planetary evolution handles tidal locking.
+	double spin = 0.0000727221 // 1 Earth Day
+		* (0.2 + 9.8 * Math.pow(rand.nextFloat(), 2)); // Measured in radians per second
+	//double year = (2d * Math.PI/obj.getOrbitalPeriod()); // Radians per second of orbit	
+	//double age = obj.getAge();
+	//double tidal_locking_time = Math.pow(distance, 6) * obj.getRadius() * 3e10d / ((double) parent.getMass() * parent.getMass() * obj.getMass()) * 60e10d * 31536000d;
+	
+	// Tidal locking
+	
+	//obj.setSpin((float) (spin*Math.max(0, 1d - age/tidal_locking_time) + year)); 
+	obj.setSpin(spin); 
+
+	
+	obj.setTilt((float) (Math.PI/2*Math.pow(rand.nextFloat()*.8, 4)));
+	if (rand.nextFloat() < 2d/9d) { // chance that your planet will be tilted, like Uranus
+		obj.setTilt((float) (Math.PI/2*Math.pow(rand.nextFloat()*.8 + .2, 0.5)));
+	}
+	
+	obj.setDay(2*Math.PI/obj.getSpin(), rand.nextFloat());
+	obj.setYear(obj.getOrbit().getPeriod(), obj.getOrbit().getPhi()/(2*Math.PI));
+		
+	// Misc properties
+	
+	obj.getBody().useTempTags(true); // This will use terms like "hot", "cold", "temperate", etc.
+	obj.setAlbedo(.3f + .2f * (float) rand.nextFloat());
+	obj.setEmi(.96f); // emissivity
+	
+	obj.setIcon("planet");		// Icon as a planet
+	obj.setIcon_body("planet");	// The icon of this as the center of its own system (when you click on it)
+	obj.setIcon_moon("planet"); // The icon of this planet as a moon
+	
+	obj.setPlanetTypeEv("terrestrial");		// Evolution parameters
+	
+	// PlanetProperty variables
+	
+	obj.setVariable("Moon Density", 0.5d);
+		
+	return true;
+}
+
+
+return (Type_Body) this;

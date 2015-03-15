@@ -1,0 +1,55 @@
+import net.divby0.vw.data.Gfx_Icon;
+import net.divby0.vw.map.Map_Object;
+import net.divby0.vw.data.Value;
+import net.divby0.nm.NeumannGame;
+import org.newdawn.slick.Color;
+import org.newdawn.slick.Image;
+
+int img = -1;
+
+// This function is unused for stars
+draw_icon(g, obj, xx, yy, radius, alpha) {
+	// blank :)
+}
+
+// This function is used to draw the star on the sector
+draw_map(g, obj, xx, yy, dx, zoom, au_per_unit) {	
+	
+	float radius = zoom * dx * (float) Math.pow(obj.getRadius()/ 149597871000f, 1f) / au_per_unit;
+	
+	if (img == -1) {
+		img = g.get("data/img/gradient_star.png");
+	}
+	
+	if (img >= 0) {
+		Image atmosphere = g.get(img);
+		float scale = 50f;
+		atmosphere.getScaledCopy(2f * scale * radius/(float) atmosphere.getWidth()).draw(xx - scale * radius, yy - scale * radius, obj.getColor_outer());
+	}
+	
+	g.setColor(obj.getColor_inner());
+	g.fillOval(xx -radius, yy -radius, radius*2, radius*2);
+	
+}
+
+// this function is unused for performance reasons
+get_size(obj, dx, zoom, au_per_unit) {
+	return 1f; // blank :)
+}
+
+// Returns an array of Value objects. A value is 3 fields, constructor is new Value(String name, double value, String unit). The double can also be a float.
+// If you want pure text with no value, set the units to null, with no quotes 
+get_tooltip(obj) {
+	Value[] ret = new Value[6];
+	int n = 0;
+	ret[n++] = new Value("Spectral Type: " + obj.getSun().getSpectralClass(), 0, null);
+	ret[n++] = new Value("Mass: ", obj.getMass()/1000f, " tons");
+	ret[n++] = new Value("Temperature: ", obj.getTemperature(), " K");
+	ret[n++] = new Value("Luminosity: ", obj.getLuminosity(), " W");
+	ret[n++] = new Value("Radius: ", obj.getRadius()/1000f, " km");
+	ret[n++] = new Value("Age: ", obj.getSun().getAge(), " My");
+	return ret;
+}
+
+
+return (Gfx_Icon) this;

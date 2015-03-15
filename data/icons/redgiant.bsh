@@ -1,0 +1,77 @@
+import net.divby0.vw.data.Gfx_Icon;
+import net.divby0.vw.map.Map_Object;
+import net.divby0.vw.data.Value;
+import net.divby0.nm.NeumannGame;
+import org.newdawn.slick.Color;
+import org.newdawn.slick.Image;
+
+int img = -1;
+int img2 = -1;
+
+// This function is used to draw the 'close-up' picture of the object
+draw_icon(g, obj, xx, yy, radius, alpha) {
+		
+}
+
+// This function is used to draw the object on the map
+draw_map(g, obj, xx, yy, dx, zoom, au_per_unit) {	
+	
+	float radius = zoom * dx * (float) Math.pow(obj.getRadius()/ 149597871000f, 1f) / au_per_unit;
+	
+	if (img == -1) {
+		img = g.get("data/img/gradient_star.png");
+	}
+	
+	if (img >= 0) {
+		Image core = g.get(img);
+		float scale = 1.5f;
+		core.getScaledCopy(2f * scale * radius/(float) core.getWidth()).draw(xx - scale * radius, yy - scale * radius, obj.getColor_inner());
+	}
+	
+	if (img2 == -1) {
+		img2 = g.get("data/img/gradient_sphere.png");
+	}
+	
+	if (img2 >= 0) {
+		Image atmosphere = g.get(img2);
+		float scale = 1.5f;
+		atmosphere.getScaledCopy(2f * scale * radius/(float) atmosphere.getWidth()).draw(xx - scale * radius, yy - scale * radius, obj.getColor_inner());
+	}
+		
+	float outline_radius = Math.min(14, Math.max(8 + zoom, 8));
+	if (radius < outline_radius) {
+		g.setColor(Color.black);
+		g.drawRect(xx -outline_radius - 1, yy -outline_radius - 1, outline_radius * 2 + 2, outline_radius * 2 + 2);
+		g.setColor(obj.getColor_inner());
+		g.drawRect(xx -outline_radius, yy -outline_radius, outline_radius * 2, outline_radius * 2);
+	}
+}
+
+// Returns the 'size' of the object independently of the actual drawing
+get_size(obj, dx, zoom, au_per_unit) {
+	return 4 + Math.max(Math.min(14, Math.max(8 + zoom, 8)), 1.1f * zoom * dx * obj.getRadius()/ 149597871000f / au_per_unit);
+}
+
+// Returns an array of Value objects. A value is 3 fields, constructor is new Value(String name, double value, String unit). The double can also be a float.
+// If you want a blank word with no value, set the units to null
+get_tooltip(obj) {
+	if (obj.getOrbitalPeriod() > 0) {
+		Value[] ret = new Value[5];
+		ret[0] = new Value("Luminosity: ", obj.getLuminosity(), " W");
+		ret[1] = new Value("Mass: ", obj.getMass()/1000f, " tons");
+		ret[2] = new Value("Radius: ", obj.getRadius()/1000f, " km");
+		ret[3] = new Value("Temperature: ", obj.getTemperature(), " K");
+		ret[4] = new Value("Orbital Period: ", obj.getOrbit().getPeriod()/31536000f, " yr");
+		return ret;
+	} else {
+		Value[] ret = new Value[4];
+		ret[0] = new Value("Luminosity: ", obj.getLuminosity(), " W");
+		ret[1] = new Value("Mass: ", obj.getMass()/1000f, " tons");
+		ret[2] = new Value("Radius: ", obj.getRadius()/1000f, " km");
+		ret[3] = new Value("Temperature: ", obj.getTemperature(), " K");
+		return ret;
+	}
+}
+
+
+return (Gfx_Icon) this;

@@ -1,0 +1,41 @@
+import net.divby0.vw.data.Type_Planet_Ev;
+import net.divby0.vw.data.BlackBody;
+import net.divby0.vw.map.Map_Star;
+import net.divby0.vw.map.Map_Body;
+import net.divby0.vw.map.Map_Parent;
+import java.util.Random;
+import org.newdawn.slick.Color;
+
+// This is the 'evolution equation,' which governs the planets properties with respect to its age.
+update(t, obj, parent) {
+	Random rand = new Random(obj.getSeed()*2); // RNG for our calcs
+		
+	/***Planet Types***/
+	// Barren - A typical, moon-like world. If this planet is a moon, it is changed to Lunar.
+	// Lunar - Same as above, but usually this is the moon of a more massive planet
+	
+	obj.updateColor();
+	
+	double distance = obj.getOrbitalRadius();
+		
+	// Planetary evolution handles tidal locking.
+	double spin = obj.getVariable("Initial Spin"); // Get the variable we set a while ago
+	double year = (2d * Math.PI/obj.getOrbitalPeriod()); // Radians per second of orbit	
+	double age = obj.getAge();
+	double tidal_locking_time = Math.pow(distance, 6) * obj.getRadius() * 3e10d / ((double) parent.getMass() * parent.getMass() * obj.getMass()) * 60e10d * 31536000d;
+	
+	
+	obj.setDesignation("Barren");
+	if (parent.getBody() != null && parent.getBody().getSun() == null) { // Make sure its not bound to a sun
+		obj.setDesignation("Lunar");
+	}
+
+	if (obj.getTemperature() > 2500) {
+		obj.destroy();
+		System.out.println("poof");
+	}
+	
+	return true;
+}
+
+return (Type_Planet_Ev) this;

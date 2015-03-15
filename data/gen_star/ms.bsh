@@ -1,0 +1,167 @@
+import net.divby0.vw.data.Type_Star;
+import net.divby0.vw.data.BlackBody;
+import net.divby0.vw.map.Map_Star;
+import net.divby0.vw.map.Map_Body;
+import net.divby0.vw.map.Map_Parent;
+import java.util.Random;
+import org.newdawn.slick.Color;
+import net.divby0.vw.world.World_Universe;
+
+getFrequency(obj, parent) {
+	return 100d;
+}
+
+generateStar(obj, parent) {
+	Random rand = new Random(obj.getSeed()); // RNG for our calcs
+	
+	World_Universe univ = obj.getSystem().getUniverse();
+	
+	// Give the star its properties here
+		
+	// starting mass
+	int i = 0;
+	double base = .05;  // use for adjusting all stars
+	double param = 0.005 + rand.nextFloat()*.17; // use for adjusting the maximum edge case
+	// max case is base/(param)
+	// min case is base/(param+1)
+	
+	if (obj.isBinaryOf(parent)) {
+		// max case is m = base/param, so param = base/m
+		param = base / parent.getMass();
+	}
+	
+	double m = base/(param + Math.pow(rand.nextDouble(), 2.85f)); // use last value to adjust the curve, bigger value > more massive stars
+	if (m < .072) {
+		// make brown dwarfs more diverse
+		m *= 0.15 + 0.85*rand.nextDouble();
+	}
+	obj.setMass(m);
+	
+	// age of the star
+	// This usually scales with mass
+	// age is measured in Mya
+	obj.setLifetime(1.2e4f * (float) Math.pow(m, -2.5));
+	if (obj.isBinaryOf(parent)) {
+		obj.setAge(parent.getAge());
+	} else {
+		obj.setAge(1.5 * Math.pow(rand.nextDouble(), .75) * Math.min((12700 + univ.getT()/3.15569e13)/1.5, obj.getLifetime()));
+	}
+	
+	// Now we set the date of birth for this star after its age has been determined.
+	obj.setBirth(univ.getT()/3.15569e13-obj.getAge());
+		
+	// 3.15569e13 = number of seconds in 1 milliom years
+		
+	// minimum radius for planets, in astronomical units. 
+	obj.setMinRadius((float) Math.max(.01, .1f*obj.getMass()));
+	
+	// metallicity
+	float mm = (float) (2d*Math.pow(rand.nextFloat(), 2.5f));
+	if (rand.nextFloat() < .5f) {
+		mm *= -1;
+	}
+	obj.setMetallicity(mm*obj.getAge()/obj.getLifetime()); // -2 to 2
+	
+	
+	
+	// radius calcs
+	// these vary with mass for main sequence stars
+	if (obj.getMass() < 0.072) {
+		obj.setRadius(.09 / (1 + .25 * (0.01-0.08)/0.07)); // jupiter radius
+	} else if (obj.getMass() < 1) {
+		obj.setRadius((float) Math.pow(obj.getMass() + 0.05*rand.nextDouble(), .8f));
+	} else {
+		obj.setRadius((float) Math.pow(obj.getMass() + 0.12*rand.nextDouble(), .57f));
+	}
+	
+	// luminosity calcs
+	// these vary with mass for main sequence stars
+	// values are from Wikipedia
+	if (obj.getMass() < .43) { // convective stars
+		obj.setLuminosity(.23f * (float) Math.pow(obj.getMass() + 0.05*rand.nextDouble(), 2.3));
+	} else if (obj.getMass() < 2) { // normal stars
+		obj.setLuminosity(1f * (float) Math.pow(obj.getMass() + .1*rand.nextDouble(), 4));
+	} else 	if (obj.getMass() < 20) { // starts flattening
+		obj.setLuminosity(1.5f * (float) Math.pow(obj.getMass() + rand.nextDouble(), 3.5));
+	} else { // for the hugest stars
+		obj.setLuminosity(obj.getMass() * 2683 + 10000*rand.nextDouble());
+	} 
+	
+	// temperature calcs using the stefan boltzmann equation
+	obj.setTemperature((float) (5778f*Math.pow(obj.getLuminosity()/(obj.getRadius()*obj.getRadius()), .25f)));
+	obj.setSpectralClass();
+	
+	// color info and graphics
+	obj.setColor_inner(BlackBody.getColor(obj.getTemperature()));
+	obj.setColor_outer(obj.getColor_inner());
+			
+	
+	// StarProperty variables
+	obj.setVariable("Starting M", m);
+	obj.setVariable("Starting L", obj.getLuminosity());
+	obj.setVariable("Starting T", obj.getTemperature());
+	obj.setVariable("Mass Loss", .5f); // bigger stars lose mass polynomially faster
+	
+	
+	obj.setVariable("Planet Density", (5f + mm)/10f);
+	
+	if (rand.nextFloat() > .7 && obj.getAge() < 2000) {
+		obj.setVariable("TAG-heliumrich", 0);
+	}
+	
+	
+	
+	/************* Make the stars sun *************/
+	
+	//new Map_Body(Board_System board, float mass, String title, String designation, long seed) {
+	
+	Map_Body sun = new Map_Body(obj.getSystem(), obj.getMass()*1.9891e30f, obj.getTitle(), obj.getDesignation(), obj.getSystem().getUniverse().getT()-obj.getAge()*1000000, rand.nextLong());
+	obj.setSun(sun);
+	sun.setSun(obj);
+	
+	sun.setRadius(obj.getRadius()*695500000f);									//Meters
+	sun.setLuminosity(3.846e26f*obj.getLuminosity()*0.8f);						//Watts
+	sun.setTemperature(obj.getTemperature());									//Kelvin
+	sun.setMetallicity(obj.getMetallicity());									//Dex
+	sun.setAlbedo(-1);
+	
+	sun.setMinRadius(obj.getMinRadius());
+		
+	sun.setColor_inner(obj.getColor_inner());
+	sun.setColor_outer(obj.getColor_outer());
+	
+	// By default, a random color is set as the background color. We want this faded out a bit, but only after setting the sun selection halo color to be the brighter version.
+	sun.setColor_bg(obj.getColor_bg());
+	obj.setColor_bg(obj.getColor_bg().multiply(new Color(.2f, .2f, .2f, 1f)));
+	
+	sun.setVars(obj.getVars());
+			
+	sun.setIcon("sun"); // set the suns map icon
+	obj.setIcon("star"); // Icon of the star itself
+	
+	if (m > 2.25) {
+		obj.setStarTypeEv("ms_med");
+	} else if (m > .6) {
+		obj.setStarTypeEv("ms_solar");
+	} else if (m > 0.072) {
+		obj.setStarTypeEv("ms_solar");
+	} else {
+		obj.setStarTypeEv("browndwarf");
+	}
+
+
+	// Adjust stars current luminosity for age
+	//obj.setLuminosity(obj.getLuminosity() * (0.8f + obj.getAge()/obj.getLifetime()/2.5f));
+
+	
+	/************* Make the star run *************/
+
+	obj.update_ev(obj.getAge()/obj.getLifetime());
+	
+	obj.setSysgen("solar");
+	
+	obj.setUpdateStatus(true); // Signals that the star can now be updated by the world generator.
+	return true;
+}
+
+return (Type_Star) this;

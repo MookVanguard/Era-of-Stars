@@ -1,0 +1,138 @@
+import net.divby0.vw.data.Type_Star;
+import net.divby0.vw.data.BlackBody;
+import net.divby0.vw.map.Map_Star;
+import net.divby0.vw.map.Map_Body;
+import net.divby0.vw.map.Map_Parent;
+import java.util.Random;
+import org.newdawn.slick.Color;
+
+getFrequency(obj, parent) {
+	return 100d;
+}
+
+generateStar(obj, parent) {
+	Random rand = new Random(obj.getSeed()); // RNG for our calcs
+	
+	// Give the star its properties here
+		
+	// mass
+	int i = 0;
+	double base = .08;  // use for adjusting all stars
+	double param = 0.04; // use for adjusting the maximum edge case
+	// max case is base/(param)
+	// min case is base/(param+1)
+	
+	if (obj.isBinaryOf(parent)) {
+		// max case is m = base/param, so param = base/m
+		param = base / parent.getMass();
+	}
+	
+	double m = base/(param + Math.pow(rand.nextDouble(), 2.35f)); // use last value to adjust the curve
+	if (m < .09) {
+		// make brown dwarfs more common and diverse
+		m *= 0.35 + 0.65*rand.nextDouble();
+	}
+	obj.setMass(m);
+	
+	// age of the star
+	// This usually scales with mass
+	obj.setLifetime(1e4f * (float) Math.pow(m, -2.5));
+	obj.setAge((.1f + .9f * rand.nextFloat()) * Math.min(12700, obj.getLifetime()));
+	
+	// radius calcs
+	// these vary with mass for main sequence stars
+	if (obj.getMass() < 0.077) {
+		obj.setRadius(.09 + 0.02*rand.nextDouble()); // jupiter radius
+	} else if (obj.getMass() < 1) {
+		obj.setRadius((float) Math.pow(obj.getMass(), .8f));
+	} else {
+		obj.setRadius((float) Math.pow(obj.getMass(), .57f));
+	}
+	
+	// luminosity calcs
+	// these vary with mass for main sequence stars
+	// values are from Wikipedia
+	if (obj.getMass() < .43) { // convective stars
+		obj.setLuminosity(.23f * (float) Math.pow(obj.getMass(), 2.3));
+	} else if (obj.getMass() < 2) { // normal stars
+		obj.setLuminosity(1f * (float) Math.pow(obj.getMass(), 4));
+	} else 	if (obj.getMass() < 20) { // starts flattening
+		obj.setLuminosity(1.5f * (float) Math.pow(obj.getMass(), 3.5));
+	} else { // for the hugest stars
+		obj.setLuminosity(obj.getMass() * 2683);
+	} 
+		
+	// temperature calcs using the stefan boltzmann equation
+	obj.setTemperature((float) (5700f*Math.pow(obj.getLuminosity()/(obj.getRadius()*obj.getRadius()), .25f)));
+	obj.setSpectralClass();
+	
+	// minimum radius for planets, in astronomical units. 
+	obj.setMinRadius((float) Math.max(.01, .1f*obj.getMass()));
+	
+	// metallicity
+	float mm = (float) (2d*Math.pow(rand.nextFloat(), 2.5f));
+	if (rand.nextFloat() < .5f) {
+		mm *= -1;
+	}
+	if (obj.getSpectralClass().equals("T") || obj.getSpectralClass().equals("Y") || obj.getSpectralClass().equals("L") || obj.getSpectralClass().equals("M")) {
+		// dwarfs generate more planets
+		mm *= 2;
+	}
+	obj.setMetallicity(mm*obj.getAge()/obj.getLifetime()); // -2 to 2
+	
+	
+	// color info and graphics
+	obj.setColor_inner(BlackBody.getColor(obj.getTemperature()));
+	obj.setColor_outer(obj.getColor_inner());
+		
+	// naming and designation info
+	if (m < .076) {
+		obj.setDesignation("Brown Dwarf");
+	} else if (m < .5) {
+		obj.setDesignation("Red Dwarf");
+	} else {
+		obj.setDesignation(obj.getSpectralClass() + "-class Sun");
+	}
+	
+	// StarProperty variables
+	
+	obj.setVariable("Planet Density", (5f + mm)/10f);
+	
+	
+	/************* Make the stars sun *************/
+	
+	//new Map_Body(Board_System board, float mass, String title, String designation, long seed) {
+	
+	Map_Body sun = new Map_Body(obj.getSystem(), obj.getMass()*1.9891e30f, obj.getTitle(), obj.getDesignation(), rand.nextLong());
+	obj.setSun(sun);
+	sun.setSun(obj);
+	
+	sun.setRadius(obj.getRadius()*695500000f);									//Meters
+	sun.setLuminosity(3.846e26f*obj.getLuminosity()*0.8f);						//Watts
+	sun.setTemperature(obj.getTemperature());									//Kelvin
+	sun.setMetallicity(obj.getMetallicity());									//Dex
+	sun.setAlbedo(-1);
+	
+	sun.setMinRadius(obj.getMinRadius());
+		
+	sun.setColor_inner(obj.getColor_inner());
+	sun.setColor_outer(obj.getColor_outer());
+	sun.setColor_bg(obj.getColor_bg());
+	
+	sun.setVars(obj.getVars());
+			
+			
+	obj.setIcon("star"); // Icon of the star itself
+	sun.setIcon("star");
+
+
+	// Adjust stars current luminosity for age
+	obj.setLuminosity(obj.getLuminosity() * (0.8f + obj.getAge()/obj.getLifetime()/2.5f));
+
+	
+	/************* Make the stars sun *************/
+	
+	return true;
+}
+
+return (Type_Star) this;

@@ -1,0 +1,51 @@
+import net.divby0.vw.data.Gfx_Icon;
+import net.divby0.vw.data.Value;
+import net.divby0.vw.map.Map_Object;
+import org.newdawn.slick.Color;
+
+// This function is used to draw the 'close-up' picture of the object
+draw_icon(g, obj, xx, yy, radius, alpha) {
+		
+}
+
+// This function is used to draw the object on the map
+draw_map(g, obj, xx, yy, dx, zoom, au_per_unit) {
+		float outline_radius = 5;
+		float outline_radius2 = 3;
+		g.setColor(obj.getColor_outer());
+		g.drawRect(xx - outline_radius, yy - outline_radius, outline_radius * 2 - 1, outline_radius * 2 - 1);
+		
+		g.setColor(new Color(0,0,0,200));
+		g.fillRect(xx - outline_radius2 , yy - outline_radius2, outline_radius2 * 2, outline_radius2 * 2);
+		g.setColor(obj.getColor_inner());
+		g.fillRect(xx - outline_radius2 + 1, yy - outline_radius2 + 1, outline_radius2 * 2 - 2, outline_radius2 * 2 - 2);
+}
+
+// Returns the 'size' of the object independently of the actual drawing
+get_size(obj, dx, zoom, au_per_unit) {
+	return 25f;
+}
+
+// Returns an array of Value objects. A value is 3 fields, constructor is new Value(String name, String unit, double value)
+// If you want a blank word with no value, set the units to null
+get_tooltip(obj) {
+	Value[] ret = new Value[8];
+	int n = 0;
+	ret[n++] = new Value("Mass: ", obj.getMass()/1000f, " tons");
+	ret[n++] = new Value("Temperature: ", obj.getTemperature(), " K");
+	ret[n++] = new Value("Radius: ", obj.getRadius()/1000f, " km");
+	if (obj.getOrbit() != null) {
+		ret[n++] = new Value("Orbital Period: ", obj.getOrbit().getPeriod()/31536000f, " yr");
+		if (obj.getOrbit().getInclination() != obj.getTilt()) {
+			ret[n++] = new Value("Inclination: ", obj.getOrbit().getInclination(), " rad");
+		}
+	} else if (obj.getBody() != null) {
+		ret[n++] = new Value("Orbital Period: ", obj.getBody().getSeason()/31536000f, " yr");
+	}
+	if (obj.getBody() != null) {
+		ret[n++] = new Value("Rotation Period: ", obj.getBody().getDay()/31536000f, " yr");
+	}
+	return ret;
+}
+
+return (Gfx_Icon) this;

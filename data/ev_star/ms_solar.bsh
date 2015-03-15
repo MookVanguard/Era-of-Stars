@@ -1,0 +1,282 @@
+import net.divby0.vw.data.Type_Star_Ev;
+import net.divby0.vw.data.BlackBody;
+import net.divby0.vw.map.Map_Star;
+import net.divby0.vw.map.Map_Body;
+import net.divby0.vw.map.Map_Parent;
+import java.util.Random;
+import org.newdawn.slick.Color;
+import net.divby0.vw.world.World_Universe;
+
+// This is the 'evolution equation,' which governs the stars properties with respect to its age.
+// If a stars age is bigger than its lifetime it will generally be some kind of stellar remnant
+update(t, obj, parent) {
+
+	int stage = 0; 
+	
+	double l = Math.log10(obj.getVariable("Starting L")); 
+	double m = obj.getVariable("Starting M");
+	double T = obj.getVariable("Starting T");
+	
+	double mm = 1-(.5*Math.pow(m, .35)+m/2.5)/m; // final white dwarf mass
+	
+	double lifetime = obj.getLifetime();
+	
+	double nebula_duration = .002; //8.33e-7d; *this is an unrealistic value, meant to make the object appear more often
+	
+	double proto = 40/m;
+	
+	//////////////////////////////////////////////
+	double henyey = 10/lifetime;								// point at which the star shifts from the hayashi track to the henyey
+	double dip = (proto - 10)/lifetime;									// point of the "dip" on the HR diagram just before main sequence
+	double main_sequence = proto/lifetime;						// before this is the protostar stage
+	double subgiant_point = .87d;										// Beginning to swell
+	double heliumflash = .98d;											// Entering the horizontal branch
+	double yellow_giant = .99d;											// Yellow giant phase
+	double supergiant = 1d - nebula_duration - (mm*m/0.01)/lifetime;	// Asymptotic giant branch, protoplanetary nebula forms
+	// Mass loss rate is 1 solar mass/10,000 years, or 0.01 million years
+	double pnebA = 1d - nebula_duration;										// Phase 1: constant luminosity, grows hotter
+	double pnebB = 1d - nebula_duration/2;										// Phase 2: luminosity plummets down to white dwarf level
+	// The star will be considered a planetary nebula, while the rapidly-cooling core will be considered a blue subdwarf
+	double whitedwarf = 1d;												// After the star crosses the edge of its lifetime, it will become a white dwarf
+	
+	double p = t;
+	double u = (p-main_sequence)/subgiant_point;
+	// p = percentage of lifetime passed
+	// u = percentage of current stage
+
+	// 0 = Main Sequence, 1 = Subgiant, 2 = Red Giant
+	if (p > whitedwarf) {
+		u = (p - whitedwarf)*lifetime/1000d; // billions of years
+		stage = 7;
+	} else if (p > pnebB) {
+		u = (p - pnebB) / (whitedwarf - pnebB);
+		stage = 6;
+	} else if (p > pnebA) {
+		u = (p - pnebA) / (pnebB - pnebA);
+		stage = 5;
+	} else if (p > supergiant) {
+		u = (p - supergiant) / (pnebA - supergiant);
+		stage = 4;
+	} else if (p > yellow_giant) {
+		u = (p - yellow_giant) / (supergiant - yellow_giant);
+		stage = 3;
+	} else if (p > heliumflash) {
+		u = (p - heliumflash) / (yellow_giant - heliumflash);
+		stage = 2;
+	} else if (p > subgiant_point) {
+		u = (p - subgiant_point) / (heliumflash - subgiant_point);
+		stage = 1;
+	} else if (p < henyey) { /////////////// Protostar stages
+		u = p / henyey;
+		stage = -3;
+	} else if (p < dip) {
+		u = (p - henyey) / (dip - henyey);
+		stage = -2;
+	} else if (p < main_sequence) {
+		u = (p - dip) / (main_sequence - dip);
+		stage = -1;
+	}
+	
+	// Advance along the H-R diagram according to the lifecycle stage.
+	switch (stage) {
+	case -3: {
+		obj.setLuminosity(Math.pow(10, .7*l + (1 - u)*2/(m + 1)));
+		obj.setTemperature(4000 + T*u*.167);
+		break;}
+		
+	case -2: {
+		obj.setLuminosity(Math.pow(10, .7*l + u*.1));
+		obj.setTemperature(T*(4000/T + .167 + u*(.833 - 4000/T)));
+		break;}
+		
+	case -1: {
+		obj.setLuminosity(Math.pow(10, .8*l - u*.1));
+		obj.setTemperature(T);
+		break;}
+		
+	case 1: {
+		obj.setLuminosity(Math.pow(10, l + .2 + u));
+		obj.setTemperature(T*(.8 + 900/T - u*(.6 - 2350/T)));
+		break;}
+		
+	case 2: {
+		obj.setLuminosity(Math.pow(10, l + 1.2 + (1.5 - l)*Math.sqrt(u)));
+		obj.setTemperature(T*(.2 + 3250/T - u*(.18 + 250/T)));
+		break;}
+		
+	case 3: {
+		obj.setLuminosity(Math.pow(10, 2.7 - (.7)*Math.sqrt(u)));
+		obj.setTemperature(T*(.02 + 3000/T + Math.pow(.5, 2d* obj.getMetallicity())*u*(.48)));
+		break;}
+		
+	case 4: {
+		obj.setLuminosity(Math.pow(10, 2 + u*(1.5 + .2*l)));
+		obj.setTemperature(T*(.02 + Math.pow(.5, 2d* obj.getMetallicity())*(.48 - .48*u) + 3000/T - u*(250/T)));
+		break;}
+		
+	case 5: {
+		obj.setMass(m*(1d-mm*u));
+		obj.setLuminosity(Math.pow(10, 3.5 + .2*l));
+		obj.setTemperature(T*(.05 + 2750/T + u*(.95 + Math.pow(T/5778d, .5)*997750/T)));
+		break;}
+		
+	case 6: {
+		obj.setMass(m*(1-mm));
+		obj.setLuminosity(Math.pow(10, 3.5 + .2*l - (4.5 + .2*l)*u));
+		obj.setTemperature(Math.pow(T/5778d, .5)*100000);
+		break;}
+		
+	case 7: {
+		obj.setMass(m*(1-mm));
+		
+		double tt = Math.pow(T/5778d, .5)*100000*Math.pow(1+1900*u, -.333333)/5778d;
+		double rr = 0.0125*Math.pow(m/2, -1d/3d);
+	
+		obj.setRadius(rr);
+		obj.setTemperature(tt*5778);
+		
+		obj.setLuminosity(rr*rr*tt*tt*tt*tt);
+		break;}
+	
+	default: {
+		obj.setLuminosity(Math.pow(10, l*(.7 + u*.4)));
+		obj.setTemperature(T*(1 - u*(.2  - 900/T)));
+		break;}
+	}
+	
+	/////////////////Variable star stuff///////////////////
+	
+	boolean delta_scuti = obj.hasVariable("TAG-heliumrich") && T > 6500 && T < 10000 && stage == 0;
+	
+	double mil = t*lifetime; // millions of years passed
+	double days = mil*365000000;
+	
+	if (delta_scuti) {
+		double period = (T*m*m*m) % .5; // 0-12 hours, semirandom
+		
+		double pifreq = 2 * Math.PI / period; // 2 * pi * freq
+		double sine = .5*Math.sin(2*pifreq*days) - Math.sin(pifreq*days) + .5*Math.sin(3*pifreq*days) - .25*Math.sin(4*pifreq*days) + .2*Math.sin(5*pifreq*days);
+		
+		obj.setLuminosity(Math.pow(10, l + .004*sine));
+		obj.setTemperature(obj.getTemperature() + 50*sine);
+	}
+	
+	
+	
+	
+	//////////////////////////////////////////////
+					
+	obj.setRadius(Math.sqrt(obj.getLuminosity() / Math.pow(obj.getTemperature() / 5778d, 4)));
+	
+	obj.getSun().setRadius(obj.getRadius()*695500000f);
+	obj.getSun().setLuminosity(3.846e26f*obj.getLuminosity());							//Watts
+	obj.getSun().setTemperature(obj.getTemperature());									//Kelvin
+		
+
+	obj.getSun().changeMass(obj.getMass()*1.9891e30d - obj.getSun().getMass());
+		
+	
+
+	// color info and graphics
+	if (stage != 0) {
+		obj.setColor_inner(BlackBody.getColor(obj.getTemperature()/1.4));
+	} else {
+		obj.setColor_inner(BlackBody.getColor(obj.getTemperature()));
+	}
+	if (stage > -1) {
+		obj.setColor_outer(obj.getColor_inner());
+	} else {
+		obj.setColor_outer(Color.red);
+	}
+	obj.getSun().setColor_inner(BlackBody.getColor(obj.getTemperature()));
+	if (stage < 2) {
+		obj.getSun().setColor_outer(BlackBody.getColor(6000));
+	} else {
+		obj.getSun().setColor_outer(BlackBody.getColor(obj.getTemperature()));
+	}
+
+	obj.setSpectralClass();
+	String sclass = obj.getSpectralClass();
+				String color = "";
+				switch (sclass.substring(0, 1)) {
+					case "M": color = "Red"; break;
+					case "K": color = "Orange"; break;
+					case "G": color = "Yellow"; break;
+					case "F": color = "White"; break;
+					case "A": color = "Bluish White"; break;
+					case "B": color = "Blue-White"; break;
+					case "O": color = "Blue"; break;
+				}
+	
+	
+	//obj.setColor_inner(BlackBody.getColor(obj.getTemperature()/(1f + 0.2f*stage)));
+	
+	
+	
+	
+	if (obj.getLuminosity() > 8000) {
+		obj.setDesignation(color + " Supergiant");
+		obj.getSun().setDesignation(obj.getDesignation());
+		obj.setSpectralClass(obj.getSpectralClass() + " I");
+	} else if (obj.getLuminosity() > 1000) {
+		obj.setDesignation(color + " Bright Giant ");
+		obj.getSun().setDesignation(obj.getDesignation());
+		obj.setSpectralClass(obj.getSpectralClass() + " II");
+	} else if (obj.getLuminosity() > 100) {
+		obj.setDesignation(color + " Giant ");
+		obj.getSun().setDesignation(obj.getDesignation());
+		obj.setSpectralClass(obj.getSpectralClass() + " III");
+	} else if (obj.getLuminosity() > 10) {
+		obj.setDesignation(color + " Subgiant ");
+		obj.getSun().setDesignation(obj.getDesignation());
+		obj.setSpectralClass(obj.getSpectralClass() + " IV");
+	} else if (stage < 5 && stage > -1) {
+		if (delta_scuti) {
+			obj.setDesignation("Delta Scuti Variable");
+			obj.getSun().setDesignation(obj.getDesignation());
+		} else {
+			obj.setDesignation("Main-Sequence Star");
+			obj.getSun().setDesignation(obj.getDesignation());
+		}
+		obj.setSpectralClass(obj.getSpectralClass() + " V");
+	}
+	
+	if (stage == 5 || stage == 6) {
+		obj.setColor_inner(Color.red);
+		obj.setColor_outer(Color.green);
+		obj.setColor_bg(obj.getSun().getColor_bg().multiply(new Color(.9f, .9f, .9f, 1f)));
+		obj.setDesignation("Planetary Nebula");
+		obj.getSun().setDesignation(color + " Subdwarf");
+		obj.setSpectralClass(obj.getSpectralClass() + " sd");
+	}
+	
+	if (stage == 7) {
+		obj.setColor_inner(BlackBody.getColor(obj.getTemperature()));
+		obj.setColor_outer(Color.white);
+		obj.setColor_bg(obj.getSun().getColor_bg().multiply(new Color(.2f, .2f, .2f, 1f)));
+		obj.setDesignation("White Dwarf");
+		obj.getSun().setDesignation(obj.getDesignation());
+		obj.setSpectralClass("D");
+	}
+	
+	if (stage < 0) {
+		obj.setDesignation("T-Tauri Star");
+		obj.getSun().setDesignation(obj.getDesignation());
+	}
+	
+	String prefix = "";
+	switch (obj.getBinaryCount()) {
+		case 2: prefix = "Binary "; break;
+		case 3: prefix = "Trinary "; break;
+		case 4: prefix = "Quaternary "; break;
+		case 5: prefix = "Quintenary  "; break;
+		case 6: prefix = "Sextenary "; break;
+		case 7: prefix = "Septenary "; break;
+	}
+	
+	obj.setDesignation(prefix + obj.getDesignation());
+		
+	return true;
+}
+
+return (Type_Star_Ev) this;

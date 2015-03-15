@@ -1,0 +1,38 @@
+import net.divby0.vw.data.Type_Dynamic;
+import net.divby0.vw.data.BlackBody;
+import net.divby0.vw.map.Map_Star;
+import net.divby0.vw.map.Map_Body;
+import net.divby0.vw.map.Map_Parent;
+import net.divby0.vw.map.Map_Object;
+import net.divby0.vw.map.Orbit;
+import java.util.Random;
+import org.newdawn.slick.Color;
+
+// Chance rules:
+// 0 == never happens
+// 1 == happens once every million years
+// Basically, to find the median time to happen (MTTH) for chance R, simply perform Math.log(.5)/Math.log(1d-R)
+// To find the chance for a MTTH of T, do 1d - Math.pow(2.71828, -0.69315/T);
+
+// This event does not happen for stars
+getChance(double t, Map_Star star) { // t is in millions of years since system creation
+	return 0d;
+}
+run(double t, Map_Star star) {
+	return false;
+}
+
+getChance(double t, Map_Object obj, Map_Object parent, Map_Star host) {
+	return 1d - Math.pow(2.71828, -0.69315/5000.0);
+}
+run(double t, Map_Object obj, Map_Object parent, Map_Star host) {
+	System.out.println("SUCCESS! Impactor arrived at " + obj.getTitle());
+	return true;
+}
+
+
+reset() {
+	// Use this to reset any global variables you may set
+}
+
+return (Type_Dynamic) this;
